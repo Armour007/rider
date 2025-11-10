@@ -1,0 +1,44 @@
+{
+  "name": "uma-platform",
+  "version": "1.0.0",
+  "description": "UMA - B2B Marketing Platform with ONDC Mobility Fulfillment",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "setup": "npm install && npm run setup:backend && npm run setup:apps",
+    "setup:backend": "cd packages/backend && npm install",
+    "setup:apps": "cd apps/business-app && npm install && cd ../rider-app && npm install",
+    "dev:backend": "cd packages/backend && npm run dev",
+    "dev:business": "cd apps/business-app && npm start",
+    "dev:rider": "cd apps/rider-app && npm start",
+    "build": "npm run build:backend && npm run build:apps",
+    "build:backend": "cd packages/backend && npm run build",
+    "build:apps": "cd apps/business-app && npm run build && cd ../rider-app && npm run build",
+    "test": "npm run test:backend && npm run test:apps",
+    "test:backend": "cd packages/backend && npm test",
+    "test:apps": "cd apps/business-app && npm test && cd ../rider-app && npm test",
+    "lint": "eslint --ext .js,.ts,.tsx .",
+    "format": "prettier --write \"**/*.{js,ts,tsx,json,md}\""
+  },
+  "keywords": [
+    "uma",
+    "ondc",
+    "mobility",
+    "b2b",
+    "marketing",
+    "reimbursement"
+  ],
+  "author": "UMA Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "eslint": "^8.55.0",
+    "prettier": "^3.1.0",
+    "typescript": "^5.3.0"
+  }
+}
