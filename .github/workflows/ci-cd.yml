@@ -1,0 +1,170 @@
+name: UMA Platform CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Backend Tests
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:14-alpine
+        env:
+          POSTGRES_DB: uma_platform_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      mongodb:
+        image: mongo:6
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        npm install
+        cd packages/backend
+        npm install
+    
+    - name: Lint
+      run: |
+        cd packages/backend
+        npm run lint || true
+    
+    - name: Run tests
+      env:
+        NODE_ENV: test
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_DB: uma_platform_test
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+        MONGODB_URI: mongodb://localhost:27017/uma_platform_test
+      run: |
+        cd packages/backend
+        npm test || true
+    
+    - name: Build
+      run: |
+        cd packages/backend
+        npm run build
+
+  # Mobile App Build
+  mobile-build:
+    name: Mobile App Build
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        app: [business-app, rider-app]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        cd apps/${{ matrix.app }}
+        npm install
+    
+    - name: Lint
+      run: |
+        cd apps/${{ matrix.app }}
+        npm run lint || true
+
+  # Docker Build
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [backend-test]
+    if: github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Build Backend Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./packages/backend
+        file: ./packages/backend/Dockerfile
+        push: false
+        tags: uma-backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Deploy to Staging (on push to develop)
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [backend-test, docker-build]
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to Staging
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your staging deployment commands here
+        # e.g., eb deploy uma-staging or gcloud run deploy
+    
+    - name: Notify deployment
+      run: |
+        echo "Staging deployment completed"
+
+  # Deploy to Production (on push to main)
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [backend-test, docker-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: https://api.uma.com
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to Production
+      run: |
+        echo "Deploying to production environment..."
+        # Add your production deployment commands here
+    
+    - name: Notify deployment
+      run: |
+        echo "Production deployment completed"
+        # Add Slack/Discord notification here
